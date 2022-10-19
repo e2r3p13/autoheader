@@ -1,73 +1,95 @@
 local M = {}
 
 local header_template = [[
+// SPDX-FileCopyrightText: CGL-KFS
+// SPDX-License-Identifier: BSD-3-Clause
+--
 /* %s
  *
  * %s
  *
- * created: %04d/%02d/%02d - %s <%s>
- * updated: %04d/%02d/%02d - %s <%s>
+ * created: %s - %s <%s>
+ * updated: %s - %s <%s>
  */
+--
+--
 ]]
-local header_line_count = 7
-local update_line_template = " * updated: %04d/%02d/%02d - %s <%s>"
+
+local update_line_template = " * updated: %s - %s <%s>"
 local default_description = "Insert file description here"
-local api = vim.api
+
+local function is_header_present()
+	spdx = {'// SPDX-FileCopyrightText: CGL-KFS', '// SPDX-License-Identifier: BSD-3-Clause'}
+	start = vim.api.nvim_buf_get_lines(0, 0, 2, false)
+
+	if #spdx ~= 2 or #spdx ~= #start or spdx[1] ~= start[1] or spdx[2] ~= start[2] then
+		return false
+	end
+	return true
+end
 
 function M.AddHeader()
-	time = os.date("*t")
-
-	-- TODO: Use the project relative path here
-	filename = vim.fn.expand("%")
-	-- TOTO: Use first arg instead of default description if provided
-	description = "Insert file description here"
-
-	day = time.day
-	month = time.month
-	year = time.year
-
-	name = vim.fn.system('echo -n $(git config --global user.name)')
-	email = vim.fn.system('echo -n $(git config --global user.email)')
-
-	fmtstr = string.format(header_template, filename, description, year, month, day, name, email, year, month, day, name, email)
-
+	-- Check that the file is writeable
 	if not vim.api.nvim_buf_get_option(vim.api.nvim_get_current_buf(), "modifiable") then
 		vim.notify("This file is read only")
         return
     end
 
-	lines = {}
-	for line in string.gmatch(fmtstr, "([^".."\n".."]+)") do
-		table.insert(lines, line)
+	-- Assert no header is present
+	if is_header_present() then
+		vim.notify("A header is already present")
+		return
 	end
-	api.nvim_buf_set_lines(0, 0, 0, 0, lines);
 
+	-- Get the information to fill the header
+	date = os.date('%Y/%m/%d')
+
+	filename = vim.fn.expand("%")
+	description = "Insert file description here"
+
+	name = vim.fn.system('echo -n $(git config --global user.name)')
+	email = vim.fn.system('echo -n $(git config --global user.email)')
+
+	-- Build the header
+	header = string.format(header_template, filename, description, date, name, email, date, name, email)
+
+	-- Convert it into a table usable by nvim_buf_set_text
+	lines = {}
+	for line in string.gmatch(header, "([^".."\n".."]+)") do
+		if line == "--" then
+			table.insert(lines, "")
+		else
+			table.insert(lines, line)
+		end
+	end
+	
+	-- Insert the header on top of the file
+	vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, lines);
 end
 
 function M.UpdHeader()
-	time = os.date("*t")
-
-	day = time.day
-	month = time.month
-	year = time.year
-
-	name = vim.fn.system('echo -n $(git config --global user.name)')
-	email = vim.fn.system('echo -n $(git config --global user.email)')
-
-	fmtstr = string.format(update_line_template, year, month, day, name, email)
-
+	-- Check that the file is writeable
 	if not vim.api.nvim_buf_get_option(vim.api.nvim_get_current_buf(), "modifiable") then
 		vim.notify("This file is read only")
         return
     end
 
-    if vim.fn.line("$") < header_line_count then
+	-- Assert the header is present
+	if not is_header_present() then
 		vim.notify("There is no header to update")
 		return
 	end
 
-	-- TODO: Make sure the header is present before updating
-	api.nvim_buf_set_lines(0, 5, 6, 1, {fmtstr});
+	-- Get the information to fill the update line
+	date = os.date('%Y/%m/%d')
+	name = vim.fn.system('echo -n $(git config --global user.name)')
+	email = vim.fn.system('echo -n $(git config --global user.email)')
+
+	-- Build the update line
+	update_line = string.format(update_line_template, date, name, email)
+
+	-- Change the update line
+	vim.api.nvim_buf_set_lines(0, 8, 9, 1, {update_line});
 end
 
 return M
