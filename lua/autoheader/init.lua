@@ -28,6 +28,12 @@ local function is_header_present()
 	return true
 end
 
+function M.Setup()
+	vim.api.nvim_exec([[
+		:autocmd BufWritePost * UpdHeader
+	]], false)
+end
+
 function M.AddHeader()
 	-- Check that the file is writeable
 	if not vim.api.nvim_buf_get_option(vim.api.nvim_get_current_buf(), "modifiable") then
@@ -76,7 +82,6 @@ function M.UpdHeader()
 
 	-- Assert the header is present
 	if not is_header_present() then
-		vim.notify("There is no header to update")
 		return
 	end
 
